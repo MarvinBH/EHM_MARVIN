@@ -11,7 +11,7 @@ library(tidyverse)
 library(tseries)
 library(forecast)
 
-# load the dataset
+# load the dataset here: 
 macro <- read.csv(file.choose())
 head(macro)
 
@@ -32,7 +32,7 @@ macro$date <- as.Date(macro$time)
 
 
 ### 1. generate EPU on USREC plot
-# Fetch the recession data
+# Fetch the recession data from FRED
 getSymbols("USREC", src="FRED")
 
 # Convert to data.frame
@@ -84,7 +84,7 @@ diff_rgdp <- diff(rgdp)
 diff_cpi <- diff(cpi)
 diff_mspus <- diff(mspus)
 
-# SVAR restrictions
+# SVAR restrictions (detailed explanations are shown in my paper, Data & Methodology part)
 amat <- diag(6)
 amat[2,1] <- NA
 amat[3,1] <- NA
@@ -102,7 +102,7 @@ amat[6,3] <- NA
 amat[6,4] <- NA
 amat[6,5] <- NA
 
-# built the model
+# built the model (rationale of ranking variables in this way is also illustrated in my paper, Data & Methodology part)
 sv <- cbind(epu, diff_rgdp, diff_cpi, u, ffr, diff_mspus)
 sv <- window(sv, start=c(1985, 2))
 
@@ -123,7 +123,7 @@ irf_list <- list()
 for (impulse_var in variables) {
   for (response_var in variables) {
     current_irf <- irf(SVARMod1, impulse = impulse_var, response = response_var, n.ahead = 48, ortho = TRUE, 
-                       cumulative = FALSE, boot = TRUE, ci = 0.95, runs = 500)
+                       cumulative = FALSE, boot = TRUE, ci = 0.95, runs = 500) # I use 500 simulations here
     irf_list[[paste(impulse_var, response_var, sep = "_to_")]] <- current_irf
   }
 }
@@ -169,12 +169,12 @@ ggplot(combined_df, aes(x = Time, y = Estimate)) +
 
 
 # Robustness check 1
-# ST method
+# ST method (See Appendix A of my paper for detailed explanations)
 reduced.form <- vars::VAR(sv, p = 3, type = "const")
 structural.form <- id.st(reduced.form, nc = 1, c_lower = 0.3, c_upper = 0.7, c_step = 5, c_fix = NULL,
                          transition_variable = NULL, gamma_lower = -3, gamma_upper = 2,
                          gamma_step = 0.5, gamma_fix = NULL, max.iter = 5, crit = 0.001,
-                         restriction_matrix = NULL, lr_test = FALSE)
+                         restriction_matrix = NULL, lr_test = FALSE) # This step may take a little bit long to get the results because of the computation-demanding nature of ST method
 summary(structural.form)
 
 # plot IRF
